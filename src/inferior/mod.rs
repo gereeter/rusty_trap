@@ -12,10 +12,10 @@ use libc::c_void;
 use std::ops::{Add, Sub};
 
 use ptrace_util;
-use breakpoint::{self, TrapBreakpoint};
+use breakpoint::{self, TrapBreakpoint, Breakpoint};
 
 #[derive(Copy, Clone)]
-pub enum InferiorState {
+enum InferiorState {
     Running,
     Stopped,
     SingleStepping
@@ -23,8 +23,10 @@ pub enum InferiorState {
 
 pub struct Inferior {
     pub pid: pid_t,
-    pub state: InferiorState
+    state: InferiorState,
+    current_breakpoint: Option<Breakpoint>
 }
+
 mod ffi {
     use libc::{c_int, c_long};
 
@@ -53,7 +55,11 @@ fn exec_inferior(filename: &Path, args: &[&str]) -> ! {
 fn attach_inferior(pid: pid_t) -> Result<Inferior, Error> {
     match waitpid(pid, None) {
         Ok(WaitStatus::Stopped(pid, signal::SIGTRAP)) =>
-            return Ok(Inferior {pid: pid, state: InferiorState::Running}),
+            return Ok(Inferior {
+                pid: pid,
+                state: InferiorState::Running,
+                current_breakpoint: None
+            }),
         Ok(_) => panic!("Unexpected stop in attach_inferior"),
         Err(e) => return Err(e)
     }
@@ -76,10 +82,24 @@ impl Inferior {
 
         ptrace_util::cont(self.pid);
         loop {
-            self.state = match waitpid(self.pid, None) {
+            match waitpid(self.pid, None) {
                 Ok(WaitStatus::Exited(_pid, code)) => return code,
-                Ok(WaitStatus::Stopped(_pid, signal::SIGTRAP)) =>
-                    breakpoint::handle(&mut self, callback),
+                Ok(WaitStatus::Stopped(_pid, signal::SIGTRAP)) => {
+                    let bp = self.current_breakpoint.expect("Hit breakpoint with none set!");
+                    match self.state {
+                        InferiorState::Running => {
+                            callback(self.pid, 0);
+                            breakpoint::step_over(self.pid, bp);
+                            self.state = InferiorState::SingleStepping;
+                        },
+                        InferiorState::SingleStepping => {
+                            breakpoint::set(self.pid, bp);
+                            ptrace_util::cont(self.pid);
+                            self.state = InferiorState::Running;
+                        },
+                        _ => panic!("Unsupported breakpoint encountered during supported inferior state")
+                    }
+                }
                 Ok(WaitStatus::Stopped(_pid, signal)) => {
                     panic!("Unexpected stop on signal {} in Inferior::continue.  State: {}", signal, self.state as i32)
                 },
@@ -87,6 +107,10 @@ impl Inferior {
                 Err(_) => panic!("Unhandled error in Inferior::continue")
             };
         }
+    }
+
+    pub fn set_breakpoint(&mut self, location: u64) {
+        self.current_breakpoint = Some(breakpoint::trap_inferior_set_breakpoint(self.pid, location));
     }
 }
 
