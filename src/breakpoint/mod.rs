@@ -32,7 +32,7 @@ fn set(inferior: TrapInferior, bp: Breakpoint) -> () {
     poke_text(inferior, bp.aligned_address, modified);
 }
 
-pub fn handle<F>(inf: Inferior,  mut callback: &mut F) -> InferiorState
+pub fn handle<F>(inf: &mut Inferior,  mut callback: &mut F) -> InferiorState
     where F: FnMut(TrapInferior, TrapBreakpoint) -> () {
     let inferior = inf.pid;
 
