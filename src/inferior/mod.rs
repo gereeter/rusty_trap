@@ -12,7 +12,7 @@ use libc::c_void;
 use std::ops::{Add, Sub};
 
 use ptrace_util;
-use breakpoint::{self, TrapBreakpoint, Breakpoint};
+use breakpoint::{self, Breakpoint};
 
 #[derive(Copy, Clone)]
 enum InferiorState {
@@ -77,10 +77,9 @@ impl Inferior {
         }
     }
 
-    pub fn cont<F>(mut self, callback: &mut F) -> i8
-        where F: FnMut(TrapInferior, TrapBreakpoint) {
-
+    pub fn cont<F>(mut self, callback: &mut F) -> i8 where F: FnMut() {
         ptrace_util::cont(self.pid);
+
         loop {
             match waitpid(self.pid, None) {
                 Ok(WaitStatus::Exited(_pid, code)) => return code,
@@ -88,7 +87,7 @@ impl Inferior {
                     let bp = self.current_breakpoint.expect("Hit breakpoint with none set!");
                     match self.state {
                         InferiorState::Running => {
-                            callback(self.pid, 0);
+                            callback();
                             breakpoint::step_over(self.pid, bp);
                             self.state = InferiorState::SingleStepping;
                         },
