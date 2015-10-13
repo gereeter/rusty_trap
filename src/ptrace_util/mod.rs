@@ -38,7 +38,7 @@ pub mod user {
     }
 }
 
-pub fn trace_me() -> () {
+pub fn trace_me() {
     ptrace(PTRACE_TRACEME, 0, ptr::null_mut(), ptr::null_mut())
         .ok()
         .expect("Failed PTRACE_TRACEME");
@@ -51,13 +51,13 @@ pub fn get_instruction_pointer(pid: pid_t) -> InferiorPointer {
     InferiorPointer(raw as u64)
 }
 
-pub fn set_instruction_pointer(pid: pid_t, ip: InferiorPointer) -> () {
+pub fn set_instruction_pointer(pid: pid_t, ip: InferiorPointer) {
     ptrace(PTRACE_POKEUSER, pid, user::regs::RIP as * mut c_void, ip.as_voidptr())
         .ok()
         .expect("Failed PTRACE_POKEUSER");
 }
 
-pub fn cont(pid: pid_t) -> () {
+pub fn cont(pid: pid_t) {
     ptrace(PTRACE_CONT, pid, ptr::null_mut(), ptr::null_mut())
         .ok()
         .expect("Failed PTRACE_CONTINUE");
@@ -69,13 +69,13 @@ pub fn peek_text(pid: pid_t, address: InferiorPointer) -> i64 {
         .expect("Failed PTRACE_PEEKTEXT")
 }
 
-pub fn poke_text(pid: pid_t, address: InferiorPointer, value: i64) -> () {
+pub fn poke_text(pid: pid_t, address: InferiorPointer, value: i64) {
     ptrace(PTRACE_POKETEXT, pid, address.as_voidptr(), value as * mut c_void)
         .ok()
         .expect("Failed PTRACE_POKETEXT");
 }
 
-pub fn single_step(pid: pid_t) -> () {
+pub fn single_step(pid: pid_t) {
     ptrace(PTRACE_SINGLESTEP, pid, ptr::null_mut(), ptr::null_mut())
         .ok()
         .expect("Failed PTRACE_SINGLESTEP");
