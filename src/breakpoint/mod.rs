@@ -1,7 +1,5 @@
-use ptrace_util::*;
-use inferior::*;
-
-pub type TrapBreakpoint = i32;
+use ptrace_util;
+use inferior::{TrapInferior, InferiorPointer};
 
 #[derive(Copy, Clone)]
 pub struct Breakpoint {
@@ -18,20 +16,20 @@ impl Breakpoint {
             shift : (location - aligned_address) * 8,
             aligned_address: InferiorPointer(aligned_address),
             target_address: InferiorPointer(location),
-            original_breakpoint_word: peek_text(inferior, InferiorPointer(aligned_address))
+            original_breakpoint_word: ptrace_util::peek_text(inferior, InferiorPointer(aligned_address))
         }
     }
 
     pub fn step_over(self, inferior: TrapInferior) {
-        poke_text(inferior, self.aligned_address, self.original_breakpoint_word);
-        set_instruction_pointer(inferior, self.target_address);
-        single_step(inferior);
+        ptrace_util::poke_text(inferior, self.aligned_address, self.original_breakpoint_word);
+        ptrace_util::set_instruction_pointer(inferior, self.target_address);
+        ptrace_util::single_step(inferior);
     }
 
     pub fn set(self, inferior: TrapInferior) {
         let mut modified = self.original_breakpoint_word;
         modified &= !0xFFi64 << self.shift;
         modified |= 0xCCi64 << self.shift;
-        poke_text(inferior, self.aligned_address, modified);
+        ptrace_util::poke_text(inferior, self.aligned_address, modified);
     }
 }
