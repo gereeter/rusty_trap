@@ -12,7 +12,7 @@ use libc::c_void;
 use std::ops::{Add, Sub};
 
 use ptrace_util;
-use breakpoint::{self, Breakpoint};
+use breakpoint::Breakpoint;
 
 #[derive(Copy, Clone)]
 enum InferiorState {
@@ -105,6 +105,12 @@ impl Inferior {
                 Ok(_) => panic!("Unexpected stop in Inferior::cont"),
                 Err(_) => panic!("Unhandled error in Inferior::cont")
             };
+        }
+    }
+
+    pub fn unset_breakpoint(&mut self) {
+        if let Some(bp) = self.current_breakpoint.take() {
+            bp.unset(self.pid);
         }
     }
 

@@ -21,9 +21,13 @@ impl Breakpoint {
     }
 
     pub fn step_over(self, inferior: TrapInferior) {
-        ptrace_util::poke_text(inferior, self.aligned_address, self.original_breakpoint_word);
+        self.unset(inferior);
         ptrace_util::set_instruction_pointer(inferior, self.target_address);
         ptrace_util::single_step(inferior);
+    }
+
+    pub fn unset(self, inferior: TrapInferior) {
+        ptrace_util::poke_text(inferior, self.aligned_address, self.original_breakpoint_word);
     }
 
     pub fn set(self, inferior: TrapInferior) {
