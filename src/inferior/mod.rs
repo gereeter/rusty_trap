@@ -88,11 +88,11 @@ impl Inferior {
                     match self.state {
                         InferiorState::Running => {
                             callback();
-                            breakpoint::step_over(self.pid, bp);
+                            bp.step_over(self.pid);
                             self.state = InferiorState::SingleStepping;
                         },
                         InferiorState::SingleStepping => {
-                            breakpoint::set(self.pid, bp);
+                            bp.set(self.pid);
                             ptrace_util::cont(self.pid);
                             self.state = InferiorState::Running;
                         },
@@ -100,16 +100,18 @@ impl Inferior {
                     }
                 }
                 Ok(WaitStatus::Stopped(_pid, signal)) => {
-                    panic!("Unexpected stop on signal {} in Inferior::continue.  State: {}", signal, self.state as i32)
+                    panic!("Unexpected stop on signal {} in Inferior::cont.  State: {}", signal, self.state as i32)
                 },
-                Ok(_) => panic!("Unexpected stop in Inferior::continue"),
-                Err(_) => panic!("Unhandled error in Inferior::continue")
+                Ok(_) => panic!("Unexpected stop in Inferior::cont"),
+                Err(_) => panic!("Unhandled error in Inferior::cont")
             };
         }
     }
 
     pub fn set_breakpoint(&mut self, location: u64) {
-        self.current_breakpoint = Some(breakpoint::trap_inferior_set_breakpoint(self.pid, location));
+        let bp = Breakpoint::new(location, self.pid);
+        bp.set(self.pid);
+        self.current_breakpoint = Some(bp);
     }
 }
 

@@ -11,29 +11,27 @@ pub struct Breakpoint {
     original_breakpoint_word : i64
 }
 
-pub fn step_over(inferior: TrapInferior, bp: Breakpoint) -> () {
-    poke_text(inferior, bp.aligned_address, bp.original_breakpoint_word);
-    set_instruction_pointer(inferior, bp.target_address);
-    single_step(inferior);
-}
+impl Breakpoint {
+    pub fn new(location: u64, inferior: TrapInferior) -> Breakpoint {
+        let aligned_address = location & !0x7u64;
+        Breakpoint {
+            shift : (location - aligned_address) * 8,
+            aligned_address: InferiorPointer(aligned_address),
+            target_address: InferiorPointer(location),
+            original_breakpoint_word: peek_text(inferior, InferiorPointer(aligned_address))
+        }
+    }
 
-pub fn set(inferior: TrapInferior, bp: Breakpoint) -> () {
-    let mut modified = bp.original_breakpoint_word;
-    modified &= !0xFFi64 << bp.shift;
-    modified |= 0xCCi64 << bp.shift;
-    poke_text(inferior, bp.aligned_address, modified);
-}
+    pub fn step_over(self, inferior: TrapInferior) {
+        poke_text(inferior, self.aligned_address, self.original_breakpoint_word);
+        set_instruction_pointer(inferior, self.target_address);
+        single_step(inferior);
+    }
 
-pub fn trap_inferior_set_breakpoint(inferior: TrapInferior, location: u64) -> Breakpoint {
-    let aligned_address = location & !0x7u64;
-    let bp = Breakpoint {
-        shift : (location - aligned_address) * 8,
-        aligned_address: InferiorPointer(aligned_address),
-        target_address: InferiorPointer(location),
-        original_breakpoint_word: peek_text(inferior, InferiorPointer(aligned_address))
-    };
-
-    set(inferior, bp);
-
-    bp
+    pub fn set(self, inferior: TrapInferior) {
+        let mut modified = self.original_breakpoint_word;
+        modified &= !0xFFi64 << self.shift;
+        modified |= 0xCCi64 << self.shift;
+        poke_text(inferior, self.aligned_address, modified);
+    }
 }
